@@ -1,0 +1,25 @@
+{
+  "size_mm": 1000,
+  "up_axis": "auto",
+
+  "thickness_mm": 18,
+  "tool_diameter_mm": 6,
+  "tolerance_mm": 0.3,
+  "sheet_mm": [2440, 1220],
+  "sheet_margin_mm": 20,
+  "part_gap_mm": 12,
+
+  "abstraction": 0.05,
+  "panel_spacing": 0.14,
+  "coverage": 0.85,
+  "max_panels": 16,
+  "max_tilt_deg": 0,
+
+  "holes": true,
+  "hole_size": 0.42,
+
+  "strips": 4,
+  "strip_section_mm": [18, 18],
+
+  "label_height_mm": 12
+}

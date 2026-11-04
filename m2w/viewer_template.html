@@ -1,0 +1,208 @@
+<title>mesh2wood</title>
+<style>
+/* Layout: one full-height workshop viewport; a compact spec card floats over the model, stacking below it on phones. */
+:root {
+  --bg: #e9e7e3;          /* concrete floor, like the reference photos */
+  --panel: #f7f6f3;
+  --fg: #26231f;
+  --muted: #6f6a62;
+  --line: #d3cfc8;
+  --wood: #d9b382;        /* birch ply face */
+  --accent: #9a5b2c;      /* ply edge / pencil mark */
+  --f-display: "Familjen Grotesk", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #1d1c1a; --panel: #282623; --fg: #ece8e1; --muted: #a39d93; --line: #3a3733;
+  --wood: #d2aa76; --accent: #e09a5f; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #1d1c1a; --panel: #282623; --fg: #ece8e1; --muted: #a39d93; --line: #3a3733;
+  --wood: #d2aa76; --accent: #e09a5f; color-scheme: dark }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font-family: var(--f-display); overflow: hidden; }
+#stage { position: fixed; inset: 0; }
+#stage canvas { display: block; width: 100%; height: 100%; outline: none; }
+.card {
+  position: fixed; top: calc(16px + env(safe-area-inset-top, 0px)); left: 16px;
+  width: min(300px, calc(100vw - 32px)); background: var(--panel); border: 1px solid var(--line);
+  border-radius: 6px; padding: 14px 16px; display: grid; gap: 12px;
+}
+h1 { margin: 0; font-size: 1.15rem; font-weight: 700; letter-spacing: .01em; text-wrap: balance; }
+.sub { margin: 0; color: var(--muted); font-size: .8rem; line-height: 1.45; }
+dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-family: var(--f-mono); font-size: .78rem; }
+dt { color: var(--muted); }
+dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.toggles { display: flex; flex-wrap: wrap; gap: 6px; }
+.toggles label {
+  display: inline-flex; align-items: center; gap: 6px; font-size: .78rem; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; user-select: none;
+}
+.toggles input { accent-color: var(--accent); margin: 0; }
+.toggles label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 1px; }
+#pick { font-family: var(--f-mono); font-size: .75rem; color: var(--muted); min-height: 2.6em; line-height: 1.4; }
+#pick b { color: var(--accent); font-weight: 600; }
+.hint { position: fixed; right: 16px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); font-family: var(--f-mono);
+  font-size: .7rem; color: var(--muted); letter-spacing: .04em; }
+@media (max-width: 560px) {
+  .card { top: auto; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); padding: 12px 14px; gap: 8px; }
+  .sub, .hint { display: none; }
+}
+</style>
+
+<div id="stage"></div>
+<section class="card" aria-label="構築資訊">
+  <h1 id="title"></h1>
+  <p class="sub">木板與木條已經含卡榫的槽和孔，跟 DXF 切出來的一樣。<br>板と角材は溝と穴を含み、DXF で切るものと同じ。</p>
+  <dl id="stats"></dl>
+  <div class="toggles" role="group" aria-label="顯示">
+    <label><input type="checkbox" id="t-panels" checked>木板</label>
+    <label><input type="checkbox" id="t-strips" checked>木條</label>
+    <label><input type="checkbox" id="t-ghost">原本的體積</label>
+    <label><input type="checkbox" id="t-color">依編號上色</label>
+  </div>
+  <div id="pick" aria-live="polite">點選木板或木條查看資料</div>
+</section>
+<div class="hint">拖曳旋轉 · 滾輪縮放 · 右鍵平移</div>
+
+<script type="application/json" id="scene">__SCENE__</script>
+<!--VENDOR-->
+<script>
+const S = JSON.parse(document.getElementById('scene').textContent);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const stage = document.getElementById('stage');
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+stage.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(38, 1, 0.01, 200);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+// data is z-up; three is y-up
+const root = new THREE.Group();
+root.rotation.x = -Math.PI / 2;
+scene.add(root);
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8478, 0.55));
+const sun = new THREE.DirectionalLight(0xfff4e6, 0.95);
+sun.position.set(-2, 3.5, 2.5);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -3, right: 3, top: 3, bottom: -3, near: 0.1, far: 12 });
+sun.shadow.bias = -0.0008;
+scene.add(sun);
+
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.ShadowMaterial({ opacity: 0.22 }));
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+const woodMat = () => new THREE.MeshStandardMaterial({ color: css('--wood'), roughness: 0.82, metalness: 0 });
+const T = S.thickness;
+const panelGroup = new THREE.Group(), stripGroup = new THREE.Group();
+root.add(panelGroup, stripGroup);
+
+function toShape(poly) {
+  const s = new THREE.Shape(poly.outer.map(p => new THREE.Vector2(p[0], p[1])));
+  for (const h of poly.holes) s.holes.push(new THREE.Path(h.map(p => new THREE.Vector2(p[0], p[1]))));
+  return s;
+}
+const hues = i => new THREE.Color().setHSL((i * 0.137) % 1, 0.45, 0.62);
+const panelMeshes = [];
+for (const p of S.panels) {
+  const geo = new THREE.ExtrudeGeometry(p.polys.map(toShape), { depth: T, bevelEnabled: false, curveSegments: 4 });
+  const n = new THREE.Vector3(...p.n), u = new THREE.Vector3(...p.u), v = new THREE.Vector3(...p.v);
+  const m = new THREE.Matrix4().makeBasis(u, v, n);
+  m.setPosition(n.clone().multiplyScalar(p.c - T / 2));
+  geo.applyMatrix4(m);
+  const mesh = new THREE.Mesh(geo, woodMat());
+  mesh.castShadow = mesh.receiveShadow = true;
+  mesh.userData = { kind: 'panel', p };
+  panelGroup.add(mesh);
+  panelMeshes.push(mesh);
+}
+const [sw, sh] = S.strip_section;
+S.strips.forEach((s, i) => {
+  const a = new THREE.Vector3(...s.a), b = new THREE.Vector3(...s.b);
+  const len = a.distanceTo(b);
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(sw, sh, len), woodMat());
+  mesh.position.copy(a).add(b).multiplyScalar(0.5);
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), b.clone().sub(a).normalize());
+  mesh.castShadow = mesh.receiveShadow = true;
+  mesh.userData = { kind: 'strip', s, i };
+  stripGroup.add(mesh);
+});
+
+const gv = new Float32Array(S.ghost.v), gf = new Uint32Array(S.ghost.f);
+const ggeo = new THREE.BufferGeometry();
+ggeo.setAttribute('position', new THREE.BufferAttribute(gv, 3));
+ggeo.setIndex(new THREE.BufferAttribute(gf, 1));
+ggeo.computeVertexNormals();
+const ghost = new THREE.Mesh(ggeo, new THREE.MeshStandardMaterial({
+  color: css('--accent'), transparent: true, opacity: 0.16, depthWrite: false, roughness: 1 }));
+ghost.visible = false;
+root.add(ghost);
+
+// frame the model
+const box = new THREE.Box3().setFromObject(root);
+const ctr = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3()).length();
+controls.target.copy(ctr);
+camera.position.copy(ctr).add(new THREE.Vector3(0.55, 0.32, 0.75).normalize().multiplyScalar(size * 1.35));
+
+// stats
+document.getElementById('title').textContent = S.title;
+document.getElementById('stats').innerHTML = S.stats.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+
+// toggles
+const bind = (id, fn) => { const el = document.getElementById(id); el.addEventListener('change', () => fn(el.checked)); };
+bind('t-panels', on => panelGroup.visible = on);
+bind('t-strips', on => stripGroup.visible = on);
+bind('t-ghost', on => ghost.visible = on);
+bind('t-color', on => panelMeshes.forEach((m, i) => m.material.color.set(on ? hues(i) : css('--wood'))));
+
+// picking
+const ray = new THREE.Raycaster(), ptr = new THREE.Vector2(), pick = document.getElementById('pick');
+let sel = null, down = null;
+renderer.domElement.addEventListener('pointerdown', e => down = [e.clientX, e.clientY]);
+renderer.domElement.addEventListener('pointerup', e => {
+  if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 4) return;
+  const r = renderer.domElement.getBoundingClientRect();
+  ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ptr, camera);
+  const hit = ray.intersectObjects([...panelGroup.children, ...stripGroup.children].filter(o => o.parent.visible))[0];
+  if (sel) sel.material.emissive.set(0x000000);
+  sel = hit ? hit.object : null;
+  if (!sel) { pick.textContent = '點選木板或木條查看資料'; return; }
+  sel.material.emissive.set(css('--accent')).multiplyScalar(0.35);
+  const d = sel.userData;
+  const name = i => 'P' + String(i).padStart(2, '0');
+  if (d.kind === 'panel') {
+    const tilt = Math.round(Math.asin(Math.abs(d.p.n[2])) * 180 / Math.PI);
+    pick.innerHTML = `<b>木板 ${name(d.p.id)}</b> · 傾角 ${tilt}°<br>木料 ${d.p.area_wood.toFixed(2)} m²`;
+  } else {
+    pick.innerHTML = `<b>木條 S${String(d.i + 1).padStart(2, '0')}</b> · 長 ${(d.s.length * 1000).toFixed(0)} mm<br>穿過 ${d.s.pierces.map(name).join('、')}`;
+  }
+});
+
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  // keep the model clear of the info card on wide screens
+  if (w > 800) camera.setViewOffset(w, h, -158, 0, w, h); else camera.clearViewOffset();
+  camera.updateProjectionMatrix();
+}
+function paintBg() { renderer.setClearColor(css('--bg')); }
+new ResizeObserver(resize).observe(stage);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', paintBg);
+new MutationObserver(paintBg).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+resize(); paintBg();
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+controls.autoRotate = !reduce;
+controls.autoRotateSpeed = 0.6;
+renderer.domElement.addEventListener('pointerdown', () => controls.autoRotate = false, { once: true });
+(function loop() { controls.update(); renderer.render(scene, camera); requestAnimationFrame(loop); })();
+</script>

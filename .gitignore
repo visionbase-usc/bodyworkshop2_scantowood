@@ -1,0 +1,13 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# results and scans stay on your own computer
+*_wood/
+*.stl
+*.obj
+*.mtl
+*.ply
+*.glb
+*.gltf

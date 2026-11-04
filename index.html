@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mesh2wood</title>
+<meta name="description" content="把 mesh 算成可以 CNC 切割的木構。全部在瀏覽器裡計算，檔案不會上傳。">
+<link rel="stylesheet" href="web/app.css">
+</head>
+<body>
+<aside class="side">
+  <header>
+    <div class="top">
+      <h1>mesh2wood</h1>
+      <div class="lang" role="group" aria-label="語言 / 言語">
+        <button type="button" data-lang="zh">中</button>
+        <button type="button" data-lang="ja">日</button>
+      </div>
+    </div>
+    <p class="sub" data-t="tagline"></p>
+  </header>
+
+  <label class="drop" id="drop">
+    <input type="file" id="file" accept=".stl,.obj,.ply,.glb">
+    <b id="dropTitle" data-t="dropTitle"></b>
+    <span id="dropSub" data-t="dropSub"></span>
+  </label>
+
+  <form id="form" autocomplete="off">
+    <fieldset>
+      <legend data-t="material"></legend>
+      <div class="grid">
+        <label><span data-t="size_mm"></span><input type="number" name="size_mm" min="100" step="10"></label>
+        <label><span data-t="thickness_mm"></span><input type="number" name="thickness_mm" min="1" step="0.1"></label>
+        <label><span data-t="tool_diameter_mm"></span><input type="number" name="tool_diameter_mm" min="0.5" step="0.1"></label>
+        <label><span data-t="tolerance_mm"></span><input type="number" name="tolerance_mm" min="0" step="0.05"></label>
+        <label><span data-t="sheet_w"></span><input type="number" name="sheet_w" min="100" step="10"></label>
+        <label><span data-t="sheet_h"></span><input type="number" name="sheet_h" min="100" step="10"></label>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend data-t="shape"></legend>
+      <label class="row"><span data-t="up_axis"></span>
+        <select name="up_axis">
+          <option value="auto" data-t="auto"></option>
+          <option value="z">z</option><option value="y">y</option><option value="x">x</option>
+          <option value="-z">-z</option><option value="-y">-y</option><option value="-x">-x</option>
+        </select>
+      </label>
+      <label class="slider"><span><span data-t="abstraction"></span><output></output></span>
+        <input type="range" name="abstraction" min="0" max="0.2" step="0.01">
+        <small data-t="abstractionHint"></small></label>
+      <label class="slider"><span><span data-t="panel_spacing"></span><output></output></span>
+        <input type="range" name="panel_spacing" min="0.08" max="0.3" step="0.01">
+        <small data-t="spacingHint"></small></label>
+      <label class="row"><span data-t="holes"></span><input type="checkbox" name="holes"></label>
+      <div class="grid">
+        <label><span data-t="strips"></span><input type="number" name="strips" min="0" max="12" step="1"></label>
+        <label><span data-t="strip_mm"></span><input type="number" name="strip_mm" min="3" step="1"></label>
+      </div>
+    </fieldset>
+    <div class="actions">
+      <button type="submit" id="go" class="primary" disabled data-t="recalc"></button>
+      <button type="button" id="reset" data-t="reset"></button>
+    </div>
+  </form>
+  <p class="privacy" data-t="privacy"></p>
+</aside>
+
+<main class="stage">
+  <nav class="tabs" id="tabs" role="tablist" hidden>
+    <button type="button" role="tab" data-tab="view" data-t="tab3d"></button>
+    <button type="button" role="tab" data-tab="sheet" data-t="tabSheet"></button>
+    <button type="button" role="tab" data-tab="report" data-t="tabReport"></button>
+    <span class="grow"></span>
+    <span id="dxfs" class="dl"></span>
+    <a id="zip" class="button primary" data-t="download"></a>
+  </nav>
+  <section id="notes" class="notes" hidden></section>
+
+  <div id="empty" class="pane empty">
+    <ol>
+      <li data-t="step1"></li>
+      <li data-t="step2"></li>
+      <li data-t="step3"></li>
+    </ol>
+    <p id="engine" role="status" aria-live="polite"></p>
+  </div>
+
+  <div id="busy" class="pane busy" hidden>
+    <p id="busyTitle" role="status" aria-live="polite"></p>
+    <progress id="bar" max="8" value="0"></progress>
+    <pre id="log"></pre>
+    <button type="button" id="cancel" data-t="cancel"></button>
+  </div>
+
+  <div id="fail" class="pane fail" hidden>
+    <h2 data-t="failTitle"></h2>
+    <p id="failMsg"></p>
+  </div>
+
+  <iframe id="view" class="pane" title="3D" hidden></iframe>
+  <div id="sheet" class="pane scroll" hidden><img id="sheetImg" alt=""></div>
+  <div id="report" class="pane scroll doc" hidden></div>
+</main>
+<script src="web/app.js"></script>
+</body>
+</html>
