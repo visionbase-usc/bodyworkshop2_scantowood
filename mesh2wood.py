@@ -1,7 +1,7 @@
 """mesh2wood: 丟一個 mesh 進來，算出可以用 CNC 切的木構。
 
     python mesh2wood.py 我的模型.stl
-    python mesh2wood.py 我的模型.stl --size 800 --strips 0
+    python mesh2wood.py 我的模型.stl --size 800
 
 參數在 settings.json，說明見 README.md。結果放在 mesh 旁邊的「<檔名>_wood」資料夾。
 """
@@ -13,9 +13,9 @@ from pathlib import Path
 
 import numpy as np
 
-from m2w.construct import Volume, select_panels, select_strips
+from m2w.construct import Volume, select_panels
 from m2w.joinery import (best_order, cut_joints, find_contacts, joint_spread, loose_parts, make_parts,
-                         mask_to_geom, nest, polys, stability, strip_holes, tool_safe)
+                         mask_to_geom, nest, polys, stability, tool_safe)
 from m2w.output import draw_sheets, write_dxf, write_report, write_viewer
 from m2w.stylize import outline_mask, rasterize, void_mask
 from m2w.voxelize import (UNIT_LONGEST, VOXEL, crop, envelope, load_mesh, main_component,
@@ -28,7 +28,7 @@ TOO_THIN = ("選不出木板：物體太薄或太細。如果它是平躺的，�
 
 def load_settings(path, args):
     cfg = json.loads(Path(path).read_text(encoding="utf-8"))
-    for key, name in (("size", "size_mm"), ("up", "up_axis"), ("strips", "strips"), ("panels", "max_panels"),
+    for key, name in (("size", "size_mm"), ("up", "up_axis"), ("panels", "max_panels"),
                       ("abstraction", "abstraction"), ("thickness", "thickness_mm")):
         if getattr(args, key) is not None:
             cfg[name] = getattr(args, key)
@@ -38,6 +38,8 @@ def load_settings(path, args):
 
 
 def run(mesh_path, cfg, out=None, log=print):
+    cfg.pop("strips", None)
+    cfg.pop("strip_section_mm", None)
     T = time.time()
     step = lambda s: log(f"[{time.time() - T:5.0f} 秒] {s}")
     mesh_path = Path(mesh_path)
@@ -70,14 +72,13 @@ def run(mesh_path, cfg, out=None, log=print):
     if not els:
         raise ValueError(TOO_THIN)
     step("畫外框 / 外形")
-    panels, kept = [], []
+    panels = []
     for e in els:
         R = outline_mask(e)
         g = mask_to_geom(R, e.px, e.uv0, k)
         g = polys(tool_safe(g, tool)) if g is not None else []
         if g:
             panels.append(dict(id=len(panels) + 1, n=e.n, c=e.c, u=e.u, v=e.v, g=max(g, key=lambda p: p.area), e=e, R=R))
-            kept.append(e)
 
     if not panels:
         raise ValueError(TOO_THIN)
@@ -85,13 +86,12 @@ def run(mesh_path, cfg, out=None, log=print):
     if len(panels) < 2:
         warnings.append("只算出一片板，沒有構築可言。物體可能太細，試試調高 abstraction。/ 板が1枚だけ。abstraction を上げる")
 
-    step("卡榫、木條 / 相欠きと角材")
+    step("卡榫 / 相欠き")
     contacts = find_contacts(panels, k, t)
     order, blocked = best_order([p["id"] for p in panels], contacts)
     slots, joint_of, joints = cut_joints(panels, contacts, order, cfg)
-    strips = select_strips(vol, kept, n_strips=cfg["strips"] * 4, log=lambda s: None)
-    holes, strips = strip_holes(panels, strips, cfg, cfg["strips"], log=log)
-    log(f"  {len(joints)} 處卡榫，{len(strips)} 根木條")
+    holes = {p["id"]: [] for p in panels}
+    log(f"  {len(joints)} 處卡榫")
     if blocked:
         warnings.append("有木板找不到不會撞到的組裝順序，要再檢查。/ ぶつからない組み立て順が見つからない板がある")
     spread = joint_spread(joints)
@@ -132,22 +132,21 @@ def run(mesh_path, cfg, out=None, log=print):
     files = write_dxf(placed, n_sheets, cfg, out)
     draw_sheets(placed, n_sheets, cfg, out / "sheets.png")
     ghost = voxels_to_mesh(env[::2, ::2, ::2], VOXEL * 2, origin, smooth_iters=8)
-    strip_rows = [dict(length=s["length"] * k, through=s["pierces"]) for s in strips]
     stats = [["木板", f"{len(panels)} 片"], ["板材", f"{n_sheets} 張"], ["卡榫", f"{len(joints)} 處"],
-             ["木條", f"{len(strips)} 根"], ["板厚", f"{t} mm"],
+             ["板厚", f"{t} mm"],
              ["尺寸", f"{size[0]:.0f}×{size[1]:.0f}×{size[2]:.0f}"]]
-    write_viewer(panels, parts, strips, ghost, cfg, mesh_path.stem, stats, out / "viewer.html")
+    write_viewer(panels, parts, ghost, cfg, mesh_path.stem, stats, out / "viewer.html")
     report = dict(name=mesh_path.name, up=up, size=size.tolist(), n_panels=len(panels), n_parts=len(parts), n_sheets=n_sheets,
                   sheet=cfg["sheet_mm"], thickness=t, tool=tool, tolerance=cfg["tolerance_mm"], n_joints=len(joints),
                   min_angle=min((j["angle"] for j in joints), default=90), stable=stable, warnings=warnings, order=order,
-                  joints=joints, strips=strip_rows, strip_section=cfg["strip_section_mm"])
+                  joints=joints)
     write_report(report, out / "report.md")
     (out / "settings_used.json").write_text(json.dumps({a: b for a, b in cfg.items() if a[0] != "_"}, indent=2), encoding="utf-8")
-    step(f"完成 / 完了：{len(panels)} 片板、{len(joints)} 處卡榫、{len(strips)} 根木條、{n_sheets} 張板材")
+    step(f"完成 / 完了：{len(panels)} 片板、{len(joints)} 處卡榫、{n_sheets} 張板材")
     for w in warnings:
         log("  注意：" + w)
     log(f"  → {out}")
-    return dict(out=out, report=report, panels=panels, parts=parts, placed=placed, files=files, strips=strips)
+    return dict(out=out, report=report, panels=panels, parts=parts, placed=placed, files=files)
 
 
 def main():
@@ -159,7 +158,6 @@ def main():
     ap.add_argument("--out", help="輸出資料夾（預設：mesh 旁邊的 <檔名>_wood）")
     ap.add_argument("--size", type=float, help="最長邊 mm")
     ap.add_argument("--up", help="哪個軸朝上：x y z；負方向要寫成 --up=-z")
-    ap.add_argument("--strips", type=int, help="木條數量，0 = 不用木條")
     ap.add_argument("--panels", type=int, help="木板數量上限")
     ap.add_argument("--abstraction", type=float, help="抽象程度：0 貼著原物，0.2 接近一整塊")
     ap.add_argument("--thickness", type=float, help="板厚 mm")

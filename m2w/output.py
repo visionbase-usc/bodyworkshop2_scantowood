@@ -5,13 +5,12 @@ from pathlib import Path
 import numpy as np
 
 HERE = Path(__file__).parent
-LAYERS = {"CUT_OUTER": 1, "CUT_INNER": 5, "STRIP_HOLE": 2, "LABEL": 7, "SHEET": 8}
+LAYERS = {"CUT_OUTER": 1, "CUT_INNER": 5, "LABEL": 7, "SHEET": 8}
 
 
 def write_dxf(placed, n_sheets, cfg, out):
     import ezdxf
     from ezdxf import units
-    from shapely.geometry import Polygon
     from .joinery import label_point
     W, H = cfg["sheet_mm"]
     files = []
@@ -29,9 +28,7 @@ def write_dxf(placed, n_sheets, cfg, out):
             g = q["placed"]
             msp.add_lwpolyline(list(g.exterior.coords)[:-1], close=True, dxfattribs={"layer": "CUT_OUTER"})
             for ring in g.interiors:
-                c = Polygon(ring).representative_point()
-                layer = "STRIP_HOLE" if any(h.buffer(1).contains(c) for h in q["placed_holes"]) else "CUT_INNER"
-                msp.add_lwpolyline(list(ring.coords)[:-1], close=True, dxfattribs={"layer": layer})
+                msp.add_lwpolyline(list(ring.coords)[:-1], close=True, dxfattribs={"layer": "CUT_INNER"})
             p = label_point(g)
             msp.add_text(q["name"], height=cfg["label_height_mm"], dxfattribs={"layer": "LABEL"}).set_placement(
                 (p.x, p.y), align=ezdxf.enums.TextEntityAlignment.MIDDLE_CENTER)
@@ -75,7 +72,7 @@ def _poly_json(g, s):
     return {"outer": r(g.exterior.coords), "holes": [r(h.coords) for h in g.interiors]}
 
 
-def write_viewer(panels, parts, strips, ghost, cfg, title, stats, path):
+def write_viewer(panels, parts, ghost, cfg, title, stats, path):
     """Standalone HTML, works offline. Shows the parts as cut, slots included. Metres."""
     k = cfg["_k"]
     m = k / 1000
@@ -85,10 +82,8 @@ def write_viewer(panels, parts, strips, ghost, cfg, title, stats, path):
         P.append({"id": p["id"], "n": p["n"].tolist(), "c": float(p["c"] * m), "u": p["u"].tolist(), "v": p["v"].tolist(),
                   "polys": [_poly_json(q["geom"], 1e-3) for q in mine],
                   "area_wood": float(sum(q["geom"].area for q in mine) / 1e6)})
-    S = [{"a": (np.asarray(s["a"]) * m).round(4).tolist(), "b": (np.asarray(s["b"]) * m).round(4).tolist(),
-          "length": round(float(s["length"] * m), 3), "pierces": s["pierces"]} for s in strips]
     scene = {"title": title, "thickness": cfg["thickness_mm"] / 1000,
-             "strip_section": [x / 1000 for x in cfg["strip_section_mm"]], "panels": P, "strips": S,
+             "panels": P,
              "stats": stats, "ghost": {"v": (ghost.vertices * m).round(4).ravel().tolist(), "f": ghost.faces.ravel().tolist()}}
     tpl = (HERE / "viewer_template.html").read_text(encoding="utf-8")
     vendor = "".join(f"<script>{(HERE / 'vendor' / n).read_text(encoding='utf-8')}</script>\n" for n in ("three.min.js", "OrbitControls.js"))
@@ -111,12 +106,7 @@ def write_report(r, path):
     L += ["## 卡榫 / 相欠き", "", "| 先放 | 後放 | 夾角 | 槽寬 mm | 接觸長 mm |", "|---|---|---|---|---|"]
     L += [f"| P{j['early']:02d} | P{j['late']:02d} | {j['angle']:.0f}° | {j['width']:.1f} | {j['length']:.0f} |" for j in r["joints"]]
     L += [""]
-    if r["strips"]:
-        L += [f"## 木條 / 角材（斷面 {r['strip_section'][0]} × {r['strip_section'][1]} mm）", "",
-              "所有板組好之後再穿進去。/ 板を全部組んでから差し込む。", "", "| 編號 | 長度 mm | 穿過 |", "|---|---|---|"]
-        L += [f"| S{i + 1:02d} | {s['length']:.0f} | {'、'.join(f'P{x:02d}' for x in s['through'])} |" for i, s in enumerate(r["strips"])]
-        L += [""]
     L += ["## DXF 圖層 / レイヤー", "", "| 圖層 | 內容 |", "|---|---|",
           "| CUT_OUTER | 零件外框（含卡榫的槽）/ 外形（溝を含む） |", "| CUT_INNER | 內孔 / 内側の穴 |",
-          "| STRIP_HOLE | 木條孔 / 角材の穴 |", "| LABEL | 零件編號 / 部品番号 |", "| SHEET | 板材邊界（不要切）/ 板の外周（切らない） |", ""]
+          "| LABEL | 零件編號 / 部品番号 |", "| SHEET | 板材邊界（不要切）/ 板の外周（切らない） |", ""]
     path.write_text("\n".join(L), encoding="utf-8")

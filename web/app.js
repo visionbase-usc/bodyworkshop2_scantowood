@@ -4,11 +4,11 @@ const TEXT = {
     material: "Materials & machine", size_mm: "Longest side (mm)", thickness_mm: "Board thickness (mm)", tool_diameter_mm: "Tool diameter (mm)", tolerance_mm: "Joint tolerance (mm)",
     sheet_w: "Sheet length (mm)", sheet_h: "Sheet width (mm)", shape: "Shape", up_axis: "Up axis", auto: "Auto",
     abstraction: "Abstraction", abstractionHint: "0 follows the original; higher values simplify the shape", panel_spacing: "Panel spacing", spacingHint: "Smaller values create more panels",
-    holes: "Cut holes", strips: "Number of wood strips", strip_mm: "Strip cross-section (mm)", recalc: "Calculate", reset: "Reset defaults",
+    holes: "Cut holes", recalc: "Calculate", reset: "Reset defaults",
     privacy: "Everything runs on your computer. Your files are never uploaded.", step1: "Check the board thickness, tool diameter, and sheet size on the left", step2: "Drag a mesh into this window", step3: "Check the 3D view, then download the DXF files",
     tab3d: "3D structure", tabSheet: "Sheet layout", tabReport: "Assembly report", download: "Download all .zip", cancel: "Cancel", failTitle: "Calculation failed",
     loading: "Preparing the calculation engine. The first visit takes about a minute; later visits are much faster.", engineReady: "Calculation engine ready.", engineFail: "Could not load the calculation engine. Check your connection and reload the page.",
-    waiting: "Downloading the calculation engine. Calculation will start automatically…", steps: ["Reading mesh", "Computing volume", "Selecting panels", "Drawing outlines", "Joints & wood strips", "Cutting holes", "Sheet layout", "Exporting"],
+    waiting: "Downloading the calculation engine. Calculation will start automatically…", steps: ["Reading mesh", "Computing volume", "Selecting panels", "Drawing outlines", "Joints", "Cutting holes", "Sheet layout", "Exporting"],
     memory: "This mesh is too large for the browser's available memory. Reduce it to fewer than 1 million faces and try again, or use the command-line version (see README).",
     fileProtocol: "This page cannot be opened by double-clicking. Use the GitHub Pages URL, or run python -m http.server in the project folder.",
     readFail: "Could not read this file. It may have been moved or changed. Please select it again.", upIs: "The {up} axis is currently pointing up. If the shape looks wrong, change the Up axis on the left and calculate again.", notMesh: "Unsupported file format. Please use .stl, .obj, .ply, or .glb.",
@@ -18,11 +18,11 @@ const TEXT = {
     material: "材料與機器", size_mm: "作品最長邊 mm", thickness_mm: "板厚 mm", tool_diameter_mm: "刀徑 mm", tolerance_mm: "卡榫公差 mm",
     sheet_w: "板材長 mm", sheet_h: "板材寬 mm", shape: "造型", up_axis: "朝上的軸", auto: "自動",
     abstraction: "抽象程度", abstractionHint: "0 貼著原物，越大越像一整塊", panel_spacing: "板的疏密", spacingHint: "越小板越多",
-    holes: "開洞", strips: "木條數量", strip_mm: "木條斷面 mm", recalc: "計算", reset: "恢復預設",
+    holes: "開洞", recalc: "計算", reset: "恢復預設",
     privacy: "全部在你的電腦上計算，檔案不會上傳。", step1: "確認左邊的板厚、刀徑、板材是你們實際用的", step2: "把 mesh 拖進這個視窗", step3: "看 3D，滿意就下載 DXF",
     tab3d: "3D 木構", tabSheet: "分料", tabReport: "組裝報告", download: "全部下載 .zip", cancel: "取消", failTitle: "算不出來",
     loading: "正在準備計算引擎。第一次約需 1 分鐘，之後會快很多。", engineReady: "計算引擎準備好了。", engineFail: "計算引擎載入失敗，請確認網路後重新整理。",
-    waiting: "計算引擎還在下載，好了會自動開始…", steps: ["讀取 mesh", "算出體積", "選木板", "畫外框", "卡榫與木條", "開洞", "排版", "輸出"],
+    waiting: "計算引擎還在下載，好了會自動開始…", steps: ["讀取 mesh", "算出體積", "選木板", "畫外框", "卡榫", "開洞", "排版", "輸出"],
     memory: "這個 mesh 太大，瀏覽器的記憶體不夠。請先減面到 100 萬面以下再試，或改用指令版（見 README）。",
     fileProtocol: "這個頁面不能直接雙擊打開，請用 GitHub Pages 的網址，或在資料夾裡執行 python -m http.server。",
     readFail: "讀不到這個檔案，可能被移動或改過了。請重新選一次。", upIs: "目前 {up} 軸朝上。形狀不對的話，改左邊的「朝上的軸」再算一次。", notMesh: "不支援這個檔案格式，請用 .stl .obj .ply .glb。",
@@ -32,11 +32,11 @@ const TEXT = {
     material: "材料と機械", size_mm: "作品の最長辺 mm", thickness_mm: "板厚 mm", tool_diameter_mm: "刃物径 mm", tolerance_mm: "相欠き公差 mm",
     sheet_w: "板の長さ mm", sheet_h: "板の幅 mm", shape: "形", up_axis: "上向きの軸", auto: "自動",
     abstraction: "抽象度", abstractionHint: "0 は元の形に沿う。大きいほど塊に近い", panel_spacing: "板の密度", spacingHint: "小さいほど板が増える",
-    holes: "穴を開ける", strips: "角材の本数", strip_mm: "角材の断面 mm", recalc: "計算", reset: "初期値に戻す",
+    holes: "穴を開ける", recalc: "計算", reset: "初期値に戻す",
     privacy: "計算はすべてこのパソコンの中で行い、ファイルはアップロードされない。", step1: "左の板厚・刃物径・板のサイズを実際の値にする", step2: "メッシュをこのウィンドウにドラッグ", step3: "3D を確認し、DXF をダウンロード",
     tab3d: "3D", tabSheet: "板取り", tabReport: "組み立てレポート", download: "すべてダウンロード .zip", cancel: "キャンセル", failTitle: "計算できなかった",
     loading: "計算エンジンを準備中。初回は約1分かかる。", engineReady: "計算エンジンの準備完了。", engineFail: "計算エンジンを読み込めない。ネットワークを確認して再読み込みする。",
-    waiting: "計算エンジンをダウンロード中。完了すると自動で始まる…", steps: ["メッシュを読み込み", "体積を計算", "板を選ぶ", "外形", "相欠きと角材", "穴", "板取り", "書き出し"],
+    waiting: "計算エンジンをダウンロード中。完了すると自動で始まる…", steps: ["メッシュを読み込み", "体積を計算", "板を選ぶ", "外形", "相欠き", "穴", "板取り", "書き出し"],
     memory: "メッシュが大きすぎて、ブラウザのメモリが足りない。100万面以下に減らすか、コマンド版を使う（README 参照）。",
     fileProtocol: "このページはダブルクリックでは開けない。GitHub Pages の URL を使うか、フォルダで python -m http.server を実行する。",
     readFail: "ファイルを読めない。移動または変更された可能性がある。もう一度選ぶ。", upIs: "現在 {up} 軸が上。形がおかしいときは左の「上向きの軸」を変えて再計算する。", notMesh: "このファイル形式には対応していない。.stl .obj .ply .glb を使う。",
@@ -69,18 +69,17 @@ function applyLang() {
 // ---- settings
 let defaults = null;
 function fill(c) {
-  for (const k of ["size_mm", "thickness_mm", "tool_diameter_mm", "tolerance_mm", "up_axis", "abstraction", "panel_spacing", "strips"]) form[k].value = c[k];
+  for (const k of ["size_mm", "thickness_mm", "tool_diameter_mm", "tolerance_mm", "up_axis", "abstraction", "panel_spacing"]) form[k].value = c[k];
   form.sheet_w.value = c.sheet_mm[0];
   form.sheet_h.value = c.sheet_mm[1];
   form.holes.checked = c.holes;
-  form.strip_mm.value = c.strip_section_mm[0];
   syncSliders();
 }
 function read() {
   const n = (k) => Number(form[k].value);
   return { ...defaults, size_mm: n("size_mm"), thickness_mm: n("thickness_mm"), tool_diameter_mm: n("tool_diameter_mm"), tolerance_mm: n("tolerance_mm"),
     sheet_mm: [n("sheet_w"), n("sheet_h")], up_axis: form.up_axis.value, abstraction: n("abstraction"), panel_spacing: n("panel_spacing"),
-    holes: form.holes.checked, strips: n("strips"), strip_section_mm: [n("strip_mm"), n("strip_mm")] };
+    holes: form.holes.checked };
 }
 function syncSliders() {
   form.querySelectorAll("input[type=range]").forEach((r) => { r.closest("label").querySelector("output").textContent = Number(r.value).toFixed(2); });
@@ -97,7 +96,7 @@ function startWorker() {
   if (location.protocol === "file:") return;
   engine = "loading";
   showEngine();
-  worker = new Worker("web/worker.js");
+  worker = new Worker("web/worker.js?v=20261105-panels1");
   worker.onmessage = onWorker;
   worker.onerror = () => { engine = "failed"; showEngine(); if (pending) fail(t("engineFail")); };
 }

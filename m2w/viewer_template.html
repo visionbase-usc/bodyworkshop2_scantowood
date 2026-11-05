@@ -52,15 +52,14 @@ dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
 <div id="stage"></div>
 <section class="card" aria-label="構築資訊">
   <h1 id="title"></h1>
-  <p class="sub">木板與木條已經含卡榫的槽和孔，跟 DXF 切出來的一樣。<br>板と角材は溝と穴を含み、DXF で切るものと同じ。</p>
+  <p class="sub">木板已經含卡榫的槽和孔，跟 DXF 切出來的一樣。<br>板は溝と穴を含み、DXF で切るものと同じ。</p>
   <dl id="stats"></dl>
   <div class="toggles" role="group" aria-label="顯示">
     <label><input type="checkbox" id="t-panels" checked>木板</label>
-    <label><input type="checkbox" id="t-strips" checked>木條</label>
     <label><input type="checkbox" id="t-ghost">原本的體積</label>
     <label><input type="checkbox" id="t-color">依編號上色</label>
   </div>
-  <div id="pick" aria-live="polite">點選木板或木條查看資料</div>
+  <div id="pick" aria-live="polite">點選木板查看資料</div>
 </section>
 <div class="hint">拖曳旋轉 · 滾輪縮放 · 右鍵平移</div>
 
@@ -102,8 +101,8 @@ scene.add(ground);
 
 const woodMat = () => new THREE.MeshStandardMaterial({ color: css('--wood'), roughness: 0.82, metalness: 0 });
 const T = S.thickness;
-const panelGroup = new THREE.Group(), stripGroup = new THREE.Group();
-root.add(panelGroup, stripGroup);
+const panelGroup = new THREE.Group();
+root.add(panelGroup);
 
 function toShape(poly) {
   const s = new THREE.Shape(poly.outer.map(p => new THREE.Vector2(p[0], p[1])));
@@ -124,18 +123,6 @@ for (const p of S.panels) {
   panelGroup.add(mesh);
   panelMeshes.push(mesh);
 }
-const [sw, sh] = S.strip_section;
-S.strips.forEach((s, i) => {
-  const a = new THREE.Vector3(...s.a), b = new THREE.Vector3(...s.b);
-  const len = a.distanceTo(b);
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(sw, sh, len), woodMat());
-  mesh.position.copy(a).add(b).multiplyScalar(0.5);
-  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), b.clone().sub(a).normalize());
-  mesh.castShadow = mesh.receiveShadow = true;
-  mesh.userData = { kind: 'strip', s, i };
-  stripGroup.add(mesh);
-});
-
 const gv = new Float32Array(S.ghost.v), gf = new Uint32Array(S.ghost.f);
 const ggeo = new THREE.BufferGeometry();
 ggeo.setAttribute('position', new THREE.BufferAttribute(gv, 3));
@@ -159,7 +146,6 @@ document.getElementById('stats').innerHTML = S.stats.map(([k, v]) => `<dt>${k}</
 // toggles
 const bind = (id, fn) => { const el = document.getElementById(id); el.addEventListener('change', () => fn(el.checked)); };
 bind('t-panels', on => panelGroup.visible = on);
-bind('t-strips', on => stripGroup.visible = on);
 bind('t-ghost', on => ghost.visible = on);
 bind('t-color', on => panelMeshes.forEach((m, i) => m.material.color.set(on ? hues(i) : css('--wood'))));
 
@@ -172,18 +158,16 @@ renderer.domElement.addEventListener('pointerup', e => {
   const r = renderer.domElement.getBoundingClientRect();
   ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ptr, camera);
-  const hit = ray.intersectObjects([...panelGroup.children, ...stripGroup.children].filter(o => o.parent.visible))[0];
+  const hit = ray.intersectObjects(panelGroup.children.filter(o => o.parent.visible))[0];
   if (sel) sel.material.emissive.set(0x000000);
   sel = hit ? hit.object : null;
-  if (!sel) { pick.textContent = '點選木板或木條查看資料'; return; }
+  if (!sel) { pick.textContent = '點選木板查看資料'; return; }
   sel.material.emissive.set(css('--accent')).multiplyScalar(0.35);
   const d = sel.userData;
   const name = i => 'P' + String(i).padStart(2, '0');
   if (d.kind === 'panel') {
     const tilt = Math.round(Math.asin(Math.abs(d.p.n[2])) * 180 / Math.PI);
     pick.innerHTML = `<b>木板 ${name(d.p.id)}</b> · 傾角 ${tilt}°<br>木料 ${d.p.area_wood.toFixed(2)} m²`;
-  } else {
-    pick.innerHTML = `<b>木條 S${String(d.i + 1).padStart(2, '0')}</b> · 長 ${(d.s.length * 1000).toFixed(0)} mm<br>穿過 ${d.s.pierces.map(name).join('、')}`;
   }
 });
 

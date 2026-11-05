@@ -1,4 +1,4 @@
-"""Voxel volume -> planar panels + straight strips.
+"""Voxel volume -> planar panels.
 
 Every candidate panel is (plane, connected region of that plane's section through the
 volume). Panels are chosen greedily by how much not-yet-covered volume they explain,
@@ -220,65 +220,3 @@ def _too_parallel(e, chosen, deg, dist):
             if close.sum() and o.contains(X[close] - np.outer(d[close], o.n), 2).mean() > 0.2:
                 return True
     return False
-
-
-def select_strips(vol, panels, n_strips=6, min_len=1.0, max_len=4.0, min_inside=0.85, min_pierce=2,
-                  overhang=0.12, n_cand=6000, min_angle_deg=20, min_pierce_deg=35, clearance=0.15,
-                  seed=0, log=print):
-    """Long straight sticks through the volume. A candidate between two interior points must stay
-    mostly inside, pass through several panels, and meet each of them steeply enough to drill."""
-    if n_strips <= 0 or not panels:
-        return []
-    rng = np.random.default_rng(seed)
-    Pin = Volume(ndi.binary_erosion(vol.occ, iterations=2), vol.h, vol.origin).points(2)
-    if not len(Pin):
-        return []
-    A = Pin[rng.integers(len(Pin), size=n_cand)]
-    B = Pin[rng.integers(len(Pin), size=n_cand)]
-    L = np.linalg.norm(B - A, axis=1)
-    keep = (L > min_len) & (L < max_len)
-    A, B, L = A[keep], B[keep], L[keep]
-    if not len(A):
-        return []
-    pts = A[:, None] + (B - A)[:, None] * np.linspace(0, 1, 64)[None, :, None]
-    ok = vol.lookup(pts.reshape(-1, 3)).reshape(len(A), -1).mean(1) >= min_inside
-    A, B, L = A[ok], B[ok], L[ok]
-    D = (B - A) / L[:, None]
-    pierce = np.zeros((len(A), len(panels)), bool)
-    shallow = np.zeros(len(A), bool)
-    for k, e in enumerate(panels):
-        da, db = A @ e.n - e.c, B @ e.n - e.c
-        cross = (da * db) < 0
-        if not cross.any():
-            continue
-        t = da[cross] / (da[cross] - db[cross])
-        hit = e.contains(A[cross] + (B - A)[cross] * t[:, None], dilate_px=1)
-        ci = np.flatnonzero(cross)
-        pierce[ci, k] = hit
-        shallow[ci[hit]] |= np.abs(D[ci[hit]] @ e.n) < np.sin(np.radians(min_pierce_deg))
-    npi = pierce.sum(1)
-    ok = (npi >= min_pierce) & ~shallow
-    A, B, L, D, npi, pierce = A[ok], B[ok], L[ok], D[ok], npi[ok], pierce[ok]
-    score = npi * L
-    out = []
-    ts = np.linspace(0, 1, 16)
-    for _ in range(n_strips):
-        if not len(score) or score.max() <= 0:
-            break
-        i = int(score.argmax())
-        a, b, d = A[i], B[i], D[i]
-        out.append({"a": a - d * overhang, "b": b + d * overhang, "length": float(L[i] + 2 * overhang),
-                    "pierces": np.flatnonzero(pierce[i]).tolist()})
-        # spread out: no similar direction nearby, and never touching a strip already placed
-        ang = np.degrees(np.arccos(np.clip(np.abs(D @ d), 0, 1)))
-        mid = (A + B) / 2
-        dist = np.linalg.norm(np.cross(mid - a, d), axis=1)
-        score = np.where((ang < min_angle_deg) & (dist < 0.6), 0, score)
-        S = A[:, None] + (B - A)[:, None] * ts[None, :, None]
-        Q = a + (b - a) * ts[:, None]
-        gap = np.linalg.norm(S[:, :, None] - Q[None, None], axis=-1).min((1, 2))
-        score = np.where(gap < clearance, 0, score)
-        score = np.where(np.linalg.norm(mid - (a + b) / 2, axis=1) < 0.5, score * 0.5, score)
-        score[i] = 0
-    log(f"  木條 {len(out)} 根 / 角材 {len(out)} 本")
-    return out
