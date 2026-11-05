@@ -37,7 +37,7 @@ onmessage = async ({ data: { name, bytes, cfg } }) => {
     const result = JSON.parse(summary);
     if (result.error) return postMessage({ type: "error", message: result.error });
     const read = (f, encoding) => py.FS.readFile("/out/" + f, encoding ? { encoding } : undefined);
-    const files = { zip: new Uint8Array(zip), sheets: read("sheets.png"), viewer: read("viewer.html", "utf8"), report: read("report.md", "utf8"), dxf: {} };
+    const files = { zip: new Uint8Array(zip), sheets: read("sheets.png"), viewer: read("viewer.html", "utf8"), report: read("report.md", "utf8"), reportEn: read("report_en.md", "utf8"), dxf: {} };
     for (const f of result.dxf) files.dxf[f] = read(f);
     postMessage({ type: "done", report: result.report, files });
   } catch (e) {

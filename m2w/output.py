@@ -91,7 +91,9 @@ def write_viewer(panels, parts, ghost, cfg, title, stats, path):
     path.write_text(html, encoding="utf-8")
 
 
-def write_report(r, path):
+def write_report(r, path, lang=None):
+    if lang == "en":
+        return write_english_report(r, path)
     L = [f"# 木構報告 / 木構造レポート：{r['name']}", ""]
     L += [f"- 尺寸 / サイズ：{r['size'][0]:.0f} × {r['size'][1]:.0f} × {r['size'][2]:.0f} mm",
           f"- 木板 / 板：{r['n_panels']} 片（零件 {r['n_parts']} 個）",
@@ -110,3 +112,27 @@ def write_report(r, path):
           "| CUT_OUTER | 零件外框（含卡榫的槽）/ 外形（溝を含む） |", "| CUT_INNER | 內孔 / 内側の穴 |",
           "| LABEL | 零件編號 / 部品番号 |", "| SHEET | 板材邊界（不要切）/ 板の外周（切らない） |", ""]
     path.write_text("\n".join(L), encoding="utf-8")
+
+
+def write_english_report(r, path):
+    stability = ("Yes: the center of mass is within the support footprint (estimate)." if r["stable"]
+                 else "No: the center of mass is outside the support footprint (estimate).")
+    lines = [f"# Assembly report: {r['name']}", "",
+             f"- Dimensions: {r['size'][0]:.0f} × {r['size'][1]:.0f} × {r['size'][2]:.0f} mm",
+             f"- Panels: {r['n_panels']} ({r['n_parts']} parts)",
+             f"- Sheets: {r['n_sheets']} sheets, {r['sheet'][0]} × {r['sheet'][1]} mm; thickness {r['thickness']} mm",
+             f"- Joints: {r['n_joints']}; minimum intersection angle {r['min_angle']:.0f}°",
+             f"- Tool diameter: {r['tool']} mm; joint tolerance: {r['tolerance']} mm",
+             f"- Can it stand on its own? {stability}", ""]
+    if r["warnings_en"]:
+        lines += ["## Warnings", ""] + [f"- {w}" for w in r["warnings_en"]] + [""]
+    lines += ["## Assembly order", "", "Insert the panels from above in this order:", "",
+              " → ".join(f"P{i:02d}" for i in r["order"]), "",
+              "## Joints", "", "| Insert first | Insert next | Angle | Slot width (mm) | Contact length (mm) |",
+              "|---|---|---|---|---|"]
+    lines += [f"| P{j['early']:02d} | P{j['late']:02d} | {j['angle']:.0f}° | {j['width']:.1f} | {j['length']:.0f} |"
+              for j in r["joints"]]
+    lines += ["", "## DXF layers", "", "| Layer | Description |", "|---|---|",
+              "| CUT_OUTER | Part outlines, including joint slots |", "| CUT_INNER | Interior holes |",
+              "| LABEL | Part numbers |", "| SHEET | Sheet boundary — do not cut |", ""]
+    path.write_text("\n".join(lines), encoding="utf-8")

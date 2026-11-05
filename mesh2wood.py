@@ -49,6 +49,7 @@ def run(mesh_path, cfg, out=None, log=print):
     cfg["_k"] = k
     tool, t = cfg["tool_diameter_mm"], cfg["thickness_mm"]
     warnings = []
+    warnings_en = []
 
     step("讀取 mesh / メッシュを読み込み")
     v, f, up = load_mesh(mesh_path, cfg["up_axis"])
@@ -57,6 +58,7 @@ def run(mesh_path, cfg, out=None, log=print):
     if size[2] < 0.5 * size[:2].max():
         warnings.append(f"高度只有 {size[2]:.0f} mm，物體可能是躺著的（目前 {up} 軸朝上）。不對的話改 up_axis。"
                         f"/ 物体が寝ているかもしれない（{up} 軸が上）。up_axis を変更")
+        warnings_en.append(f"The height is only {size[2]:.0f} mm. The model may be lying on its side (currently {up} up). Try changing the up axis.")
 
     step("算出體積 / 体積を計算")
     solid, origin = voxelize(v, f)
@@ -85,6 +87,7 @@ def run(mesh_path, cfg, out=None, log=print):
 
     if len(panels) < 2:
         warnings.append("只算出一片板，沒有構築可言。物體可能太細，試試調高 abstraction。/ 板が1枚だけ。abstraction を上げる")
+        warnings_en.append("Only one panel was generated, so there is no joined structure. The model may be too narrow. Try increasing abstraction.")
 
     step("卡榫 / 相欠き")
     contacts = find_contacts(panels, k, t)
@@ -94,10 +97,12 @@ def run(mesh_path, cfg, out=None, log=print):
     log(f"  {len(joints)} 處卡榫")
     if blocked:
         warnings.append("有木板找不到不會撞到的組裝順序，要再檢查。/ ぶつからない組み立て順が見つからない板がある")
+        warnings_en.append("A collision-free assembly order could not be found for some panels. Check the assembly before cutting.")
     spread = joint_spread(joints)
     if spread > 3:
         warnings.append(f"木板不是全部垂直，卡榫方向差到 {spread:.0f}°，可能插不進去。把 max_tilt_deg 改回 0 就一定插得進去。"
                         "/ 溝の向きが揃っていない。max_tilt_deg を 0 に")
+        warnings_en.append(f"The panels are not all vertical. Joint directions differ by up to {spread:.0f}°, which may prevent insertion. Set max_tilt_deg to 0 to align insertion directions.")
 
     step("開洞 / 穴")
     band = max(0.05, 2 * tool / k)
@@ -115,15 +120,19 @@ def run(mesh_path, cfg, out=None, log=print):
     parts, scrap = make_parts(panels, slots, holes, joint_of)
     if tool > min((j["width"] for j in joints), default=tool):
         warnings.append(f"刀徑 {tool} mm 比槽還寬，切不出來。/ 刃物径が溝より太い")
+        warnings_en.append(f"The {tool} mm tool is wider than a joint slot and cannot cut it.")
     split = sorted({q["id"] for q in parts if q["name"][-1].isalpha()})
     if split:
         warnings.append("被槽切成兩塊以上的板：" + "、".join(f"P{i:02d}" for i in split) + "。/ 溝で分割された板")
+        warnings_en.append("Panels split into multiple parts by slots: " + ", ".join(f"P{i:02d}" for i in split) + ".")
     loose = loose_parts(parts)
     if loose:
         warnings.append("這些零件沒有接到主體，組起來會掉下來：" + "、".join(loose) + "。/ 本体につながっていない部品")
+        warnings_en.append("These parts are not connected to the main structure and may fall out: " + ", ".join(loose) + ".")
     stable, _ = stability(panels, k)
     if not stable:
         warnings.append("重心在落地範圍外，可能站不住（估算）。可以試試別的 up_axis 或加底座。/ 重心が足元の外（推定）")
+        warnings_en.append("The center of mass is outside the support footprint, so the structure may not stand on its own (estimate). Try another up axis or add a base.")
 
     step("排版 / 板取り")
     placed, n_sheets = nest(parts, cfg["sheet_mm"], cfg["sheet_margin_mm"], cfg["part_gap_mm"])
@@ -139,8 +148,9 @@ def run(mesh_path, cfg, out=None, log=print):
     report = dict(name=mesh_path.name, up=up, size=size.tolist(), n_panels=len(panels), n_parts=len(parts), n_sheets=n_sheets,
                   sheet=cfg["sheet_mm"], thickness=t, tool=tool, tolerance=cfg["tolerance_mm"], n_joints=len(joints),
                   min_angle=min((j["angle"] for j in joints), default=90), stable=stable, warnings=warnings, order=order,
-                  joints=joints)
+                  joints=joints, warnings_en=warnings_en)
     write_report(report, out / "report.md")
+    write_report(report, out / "report_en.md", lang="en")
     (out / "settings_used.json").write_text(json.dumps({a: b for a, b in cfg.items() if a[0] != "_"}, indent=2), encoding="utf-8")
     step(f"完成 / 完了：{len(panels)} 片板、{len(joints)} 處卡榫、{n_sheets} 張板材")
     for w in warnings:

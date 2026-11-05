@@ -52,6 +52,7 @@ python mesh2wood.py 我的模型.stl --size 800
 | `viewer.html` | 3D 檢視，看到的就是切出來的樣子 / 3D ビューア |
 | `sheets.png` | 排版預覽 / 板取りのプレビュー |
 | `report.md` | 組裝順序、卡榫、要注意的地方 / 組み立て順など |
+| `report_en.md` | 英文組裝報告，包含警告、組裝順序、卡榫與 DXF 圖層說明 / English assembly report |
 | `settings_used.json` | 這次用的參數 / 今回の設定 |
 
 DXF 圖層 / レイヤー：

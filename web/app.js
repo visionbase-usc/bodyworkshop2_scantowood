@@ -63,7 +63,7 @@ function applyLang() {
   document.querySelectorAll("[data-lang]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.lang === lang));
   showEngine();
   if (pending) $("busyTitle").textContent = engine === "ready" ? t("steps")[Math.max(0, Math.min(steps - 1, 7))] : t("waiting");
-  if (lastReport) showNotes(lastReport);
+  if (lastReport) { showNotes(lastReport); showReport(); }
 }
 
 // ---- settings
@@ -96,7 +96,7 @@ function startWorker() {
   if (location.protocol === "file:") return;
   engine = "loading";
   showEngine();
-  worker = new Worker("web/worker.js?v=20261105-panels1");
+  worker = new Worker("web/worker.js?v=20261105-report-en1");
   worker.onmessage = onWorker;
   worker.onerror = () => { engine = "failed"; showEngine(); if (pending) fail(t("engineFail")); };
 }
@@ -160,11 +160,14 @@ function fail(message) {
 }
 
 // ---- results
-let urls = [], lastReport = null;
+let urls = [], lastReport = null, reportTexts = null;
+function showReport() {
+  if (reportTexts) $("report").innerHTML = markdown(lang === "en" ? reportTexts.en : reportTexts.original);
+}
 const blob = (data, type) => { const u = URL.createObjectURL(new Blob([data], { type })); urls.push(u); return u; };
 function setResult(on) {
   $("tabs").hidden = !on;
-  if (!on) { $("notes").hidden = true; lastReport = null; urls.forEach(URL.revokeObjectURL); urls = []; }
+  if (!on) { $("notes").hidden = true; lastReport = null; reportTexts = null; urls.forEach(URL.revokeObjectURL); urls = []; }
 }
 function finish({ report, files }) {
   pending = null;
@@ -172,7 +175,8 @@ function finish({ report, files }) {
   $("view").src = blob(files.viewer, "text/html");
   $("sheetImg").src = blob(files.sheets, "image/png");
   $("sheetImg").alt = `${stem} DXF`;
-  $("report").innerHTML = markdown(files.report);
+  reportTexts = { original: files.report, en: files.reportEn };
+  showReport();
   const zip = $("zip");
   zip.href = blob(files.zip, "application/zip");
   zip.download = `${stem}_wood.zip`;
@@ -194,7 +198,7 @@ function finish({ report, files }) {
   restart();      // the next run starts with clean memory
 }
 function showNotes(r) {
-  const items = [...r.warnings.map((w) => pick(w))];
+  const items = lang === "en" ? [...r.warnings_en] : r.warnings.map((w) => pick(w));
   if (form.up_axis.value === "auto" && r.up) items.push(t("upIs").replace("{up}", r.up));
   const ul = document.createElement("ul");
   items.forEach((s) => { const li = document.createElement("li"); li.textContent = s; ul.append(li); });
