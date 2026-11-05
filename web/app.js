@@ -1,4 +1,18 @@
 const TEXT = {
+  en: {
+    tagline: "Turn a mesh into a CNC-cut wood structure", dropTitle: "Drop a mesh here, or click to choose a file", dropSub: ".stl  .obj  .ply  .glb",
+    material: "Materials & machine", size_mm: "Longest side (mm)", thickness_mm: "Board thickness (mm)", tool_diameter_mm: "Tool diameter (mm)", tolerance_mm: "Joint tolerance (mm)",
+    sheet_w: "Sheet length (mm)", sheet_h: "Sheet width (mm)", shape: "Shape", up_axis: "Up axis", auto: "Auto",
+    abstraction: "Abstraction", abstractionHint: "0 follows the original; higher values simplify the shape", panel_spacing: "Panel spacing", spacingHint: "Smaller values create more panels",
+    holes: "Cut holes", strips: "Number of wood strips", strip_mm: "Strip cross-section (mm)", recalc: "Calculate", reset: "Reset defaults",
+    privacy: "Everything runs on your computer. Your files are never uploaded.", step1: "Check the board thickness, tool diameter, and sheet size on the left", step2: "Drag a mesh into this window", step3: "Check the 3D view, then download the DXF files",
+    tab3d: "3D structure", tabSheet: "Sheet layout", tabReport: "Assembly report", download: "Download all .zip", cancel: "Cancel", failTitle: "Calculation failed",
+    loading: "Preparing the calculation engine. The first visit takes about a minute; later visits are much faster.", engineReady: "Calculation engine ready.", engineFail: "Could not load the calculation engine. Check your connection and reload the page.",
+    waiting: "Downloading the calculation engine. Calculation will start automatically…", steps: ["Reading mesh", "Computing volume", "Selecting panels", "Drawing outlines", "Joints & wood strips", "Cutting holes", "Sheet layout", "Exporting"],
+    memory: "This mesh is too large for the browser's available memory. Reduce it to fewer than 1 million faces and try again, or use the command-line version (see README).",
+    fileProtocol: "This page cannot be opened by double-clicking. Use the GitHub Pages URL, or run python -m http.server in the project folder.",
+    readFail: "Could not read this file. It may have been moved or changed. Please select it again.", upIs: "The {up} axis is currently pointing up. If the shape looks wrong, change the Up axis on the left and calculate again.", notMesh: "Unsupported file format. Please use .stl, .obj, .ply, or .glb.",
+  },
   zh: {
     tagline: "把 mesh 算成可以 CNC 切割的木構", dropTitle: "把 mesh 拖進來，或點這裡選檔案", dropSub: ".stl  .obj  .ply  .glb",
     material: "材料與機器", size_mm: "作品最長邊 mm", thickness_mm: "板厚 mm", tool_diameter_mm: "刀徑 mm", tolerance_mm: "卡榫公差 mm",
@@ -39,13 +53,16 @@ const store = {   // a convenience only: everything works without it
   drop(k) { try { localStorage.removeItem(k); } catch {} },
 };
 
-let lang = store.get("mesh2wood.lang") || (navigator.language.startsWith("ja") ? "ja" : "zh");
+const savedLang = store.get("mesh2wood.lang");
+const browserLang = navigator.language.split("-")[0];
+let lang = Object.hasOwn(TEXT, savedLang) ? savedLang : (Object.hasOwn(TEXT, browserLang) ? browserLang : "zh");
 const t = (k) => TEXT[lang][k];
 function applyLang() {
-  document.documentElement.lang = lang === "ja" ? "ja" : "zh-Hant";
+  document.documentElement.lang = lang === "zh" ? "zh-Hant" : lang;
   document.querySelectorAll("[data-t]").forEach((el) => { if (!(el.id === "dropTitle" && file) && !(el.id === "dropSub" && file)) el.textContent = t(el.dataset.t); });
   document.querySelectorAll("[data-lang]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.lang === lang));
   showEngine();
+  if (pending) $("busyTitle").textContent = engine === "ready" ? t("steps")[Math.max(0, Math.min(steps - 1, 7))] : t("waiting");
   if (lastReport) showNotes(lastReport);
 }
 
